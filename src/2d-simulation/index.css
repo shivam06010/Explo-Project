@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap');
+
+.simulation-2d-app {
+  --bg-primary: #0a0e17;
+  --bg-secondary: #131a2a;
+  --bg-panel: rgba(19, 26, 42, 0.7);
+  
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  
+  --brand: #00e5ff;
+  
+  --frozen: #00ffff;
+  --cold: #0066ff;
+  --room: #22c55e;
+  
+  --warning: #fbbf24;
+  --critical: #ef4444;
+  
+  --good-bg: rgba(52, 199, 89, 0.1);
+  --good-text: #34c759;
+  
+  --path-color: #00e5ff;
+}
+
+.simulation-2d-app * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.simulation-2d-app {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+.simulation-2d-app h1,
+.simulation-2d-app h2,
+.simulation-2d-app h3,
+.simulation-2d-app h4 {
+  font-family: 'Outfit', sans-serif;
+  color: #fff;
+}
