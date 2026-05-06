@@ -42,7 +42,13 @@ export default function InventoryTable({ items }) {
         <tbody className="divide-y divide-gray-50 bg-white">
           {items.map((item) => {
             const rowClass =
-              item.alertColor === "red" ? "bg-red-50/30" : item.alertColor === "yellow" ? "bg-yellow-50/30" : "";
+              item.alertColor === "red"
+                ? "bg-red-50/30"
+                : item.alertColor === "yellow"
+                  ? "bg-amber-50/30"
+                  : item.alertColor === "blue"
+                    ? "bg-blue-50/30"
+                    : "";
 
             return (
               <tr key={item.id} className={`hover:bg-gray-50/60 transition ${rowClass}`}>
@@ -74,15 +80,33 @@ export default function InventoryTable({ items }) {
 
                 {/* Expiry Date */}
                 <td className="px-5 py-4">
-                  <span className={`font-medium ${item.expirySoon ? "text-yellow-700" : "text-gray-600"}`}>
+                  <span
+                    className={`font-medium ${
+                      item.expiryAlertLevel === "critical"
+                        ? "text-red-700"
+                        : item.expiryAlertLevel === "warning"
+                          ? "text-amber-700"
+                          : item.expiryAlertLevel === "advisory"
+                            ? "text-blue-700"
+                            : "text-gray-600"
+                    }`}
+                  >
                     {formatDate(item.expiryDate)}
                   </span>
                 </td>
 
                 <td className="px-5 py-4 text-xs">
-                  {item.expirySoon ? (
-                    <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full font-semibold bg-yellow-100 text-yellow-700">
-                      Use these items first
+                  {item.expiryAlertLevel === "critical" ? (
+                    <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full font-semibold bg-red-100 text-red-700">
+                      Urgent FEFO dispatch
+                    </span>
+                  ) : item.expiryAlertLevel === "warning" ? (
+                    <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">
+                      Reorder recommendation active
+                    </span>
+                  ) : item.expiryAlertLevel === "advisory" ? (
+                    <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-700">
+                      Logged for monthly review
                     </span>
                   ) : (
                     <span className="text-gray-500">Normal queue</span>
@@ -95,9 +119,17 @@ export default function InventoryTable({ items }) {
                     <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
                       Critical: Low Stock (ROP Alert)
                     </span>
-                  ) : item.expirySoon ? (
-                    <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
-                      Warning: Expiring &lt; 7 days
+                  ) : item.expiryAlertLevel === "critical" ? (
+                    <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">
+                      High Risk: Expiring in 30 days
+                    </span>
+                  ) : item.expiryAlertLevel === "warning" ? (
+                    <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                      Warning: Expiring in 90 days
+                    </span>
+                  ) : item.expiryAlertLevel === "advisory" ? (
+                    <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                      Advisory: Expiring in 180 days
                     </span>
                   ) : (
                     <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">

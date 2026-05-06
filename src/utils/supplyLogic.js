@@ -1,9 +1,37 @@
 const LOW_STOCK_COLOR = "red";
 const WARNING_COLOR = "yellow";
+const ADVISORY_COLOR = "blue";
+const NORMAL_COLOR = "green";
+
+export const EXPIRY_THRESHOLDS_DAYS = {
+  critical: 30,
+  warning: 90,
+  advisory: 180,
+};
 
 export const INVENTORY_STORAGE_KEY = "inventory";
 export const SENSOR_STORAGE_KEY = "sensorReadings";
 export const SITE_ALERT_STORAGE_KEY = "siteAlertLevel";
+
+export function getDaysToExpiry(expiryDate) {
+  if (!expiryDate) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expiry = new Date(expiryDate);
+  expiry.setHours(0, 0, 0, 0);
+  if (Number.isNaN(expiry.getTime())) return null;
+  const msPerDay = 1000 * 60 * 60 * 24;
+  return Math.ceil((expiry - today) / msPerDay);
+}
+
+export function getExpiryAlertLevel(expiryDate) {
+  const daysToExpiry = getDaysToExpiry(expiryDate);
+  if (daysToExpiry === null) return { level: "none", daysToExpiry };
+  if (daysToExpiry <= EXPIRY_THRESHOLDS_DAYS.critical) return { level: "critical", daysToExpiry };
+  if (daysToExpiry <= EXPIRY_THRESHOLDS_DAYS.warning) return { level: "warning", daysToExpiry };
+  if (daysToExpiry <= EXPIRY_THRESHOLDS_DAYS.advisory) return { level: "advisory", daysToExpiry };
+  return { level: "none", daysToExpiry };
+}
 
 export function calculateDemandPerDay(row) {
   const usageKeys = ["Usage_M1", "Usage_M2", "Usage_M3", "Usage_M4", "Usage_M5", "Usage_M6"];
@@ -40,11 +68,15 @@ export function mapDatasetRowToInventoryItem(row, index) {
   const rop = calculateRop(row);
   const quantity = calculateSimulatedQuantity(row);
   const lowStock = quantity <= rop;
-  const expirySoon = isExpiringWithinDays(row.Expiry_Date, 7);
+  const { level: expiryAlertLevel, daysToExpiry } = getExpiryAlertLevel(row.Expiry_Date);
+  const expirySoon = expiryAlertLevel !== "none";
+  const highRisk = expiryAlertLevel === "critical";
 
-  let alertColor = "green";
+  let alertColor = NORMAL_COLOR;
   if (lowStock) alertColor = LOW_STOCK_COLOR;
-  else if (expirySoon) alertColor = WARNING_COLOR;
+  else if (expiryAlertLevel === "critical") alertColor = LOW_STOCK_COLOR;
+  else if (expiryAlertLevel === "warning") alertColor = WARNING_COLOR;
+  else if (expiryAlertLevel === "advisory") alertColor = ADVISORY_COLOR;
 
   return {
     id: index + 1,
@@ -59,6 +91,9 @@ export function mapDatasetRowToInventoryItem(row, index) {
     rop: Number(rop.toFixed(2)),
     lowStock,
     expirySoon,
+    highRisk,
+    daysToExpiry,
+    expiryAlertLevel,
     alertColor,
     tempMin: Number(row.Temp_Min ?? 0),
     tempMax: Number(row.Temp_Max ?? 0),
@@ -74,16 +109,60 @@ export function getInventoryAlerts(items) {
       message: `${item.name} (${item.batchNumber}) is low in stock: ${item.stock} <= ROP ${item.rop}`,
     }));
 
+  const criticalExpiryAlerts = items
+    .filter((item) => item.expiryAlertLevel === "critical")
+    .sort((a, b) => (a.daysToExpiry ?? Infinity) - (b.daysToExpiry ?? Infinity))
+    .map((item) => ({
+      type: "expiry-critical",
+      color: LOW_STOCK_COLOR,
+      message: `${item.name} (${item.batchNumber}) expires in ${item.daysToExpiry} day(s). Immediate reorder review and urgent dispensing prioritization required.`,
+    }));
+
+  const warningExpiryAlerts = items
+    .filter((item) => item.expiryAlertLevel === "warning")
+    .sort((a, b) => (a.daysToExpiry ?? Infinity) - (b.daysToExpiry ?? Infinity))
+    .map((item) => {
+      const projectedUsage = Math.ceil(Number(item.demandPerDay ?? 0) * Number(item.daysToExpiry ?? 0));
+      const projectedShortfall = Math.max(0, projectedUsage - Number(item.stock ?? 0));
+      return {
+        type: "expiry-warning",
+        color: WARNING_COLOR,
+        message: `${item.name} (${item.batchNumber}) expires in ${item.daysToExpiry} day(s). Reorder recommendation: projected usage ${projectedUsage}, estimated shortfall ${projectedShortfall}.`,
+      };
+    });
+
+  const advisoryExpiryAlerts = items
+    .filter((item) => item.expiryAlertLevel === "advisory")
+    .sort((a, b) => (a.daysToExpiry ?? Infinity) - (b.daysToExpiry ?? Infinity))
+    .map((item) => ({
+      type: "expiry-advisory",
+      color: ADVISORY_COLOR,
+      message: `${item.name} (${item.batchNumber}) expires in ${item.daysToExpiry} day(s). Logged for monthly procurement planning.`,
+    }));
+
   const expiryAlerts = items
     .filter((item) => item.expirySoon)
-    .sort((a, b) => new Date(a.expiryDate) - new Date(b.expiryDate))
+    .sort((a, b) => (a.daysToExpiry ?? Infinity) - (b.daysToExpiry ?? Infinity))
     .map((item) => ({
-      type: "expiry",
-      color: WARNING_COLOR,
+      type: `expiry-${item.expiryAlertLevel}`,
+      color:
+        item.expiryAlertLevel === "critical"
+          ? LOW_STOCK_COLOR
+          : item.expiryAlertLevel === "warning"
+            ? WARNING_COLOR
+            : ADVISORY_COLOR,
       message: `${item.name} (${item.batchNumber}) expires on ${item.expiryDate}. FEFO: use first.`,
     }));
 
-  return { lowStockAlerts, expiryAlerts };
+  return {
+    lowStockAlerts,
+    expiryAlerts,
+    expiryTierAlerts: {
+      critical: criticalExpiryAlerts,
+      warning: warningExpiryAlerts,
+      advisory: advisoryExpiryAlerts,
+    },
+  };
 }
 
 export function buildSensorsFromInventory(items) {

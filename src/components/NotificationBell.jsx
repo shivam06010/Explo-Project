@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, Bell, Clock } from "lucide-react";
+import { AlertTriangle, Bell, Clock, Info } from "lucide-react";
 import { getInventoryAlerts, INVENTORY_STORAGE_KEY } from "@/utils/supplyLogic";
 
 export default function NotificationBell() {
@@ -11,8 +11,15 @@ export default function NotificationBell() {
   useEffect(() => {
     function refresh() {
       const items = JSON.parse(localStorage.getItem(INVENTORY_STORAGE_KEY) ?? "[]");
-      const { lowStockAlerts, expiryAlerts } = getInventoryAlerts(items);
-      setAlerts([...lowStockAlerts, ...expiryAlerts].slice(0, 10));
+      const { lowStockAlerts, expiryTierAlerts } = getInventoryAlerts(items);
+      setAlerts(
+        [
+          ...lowStockAlerts,
+          ...expiryTierAlerts.critical,
+          ...expiryTierAlerts.warning,
+          ...expiryTierAlerts.advisory,
+        ].slice(0, 10)
+      );
     }
 
     refresh();
@@ -55,10 +62,18 @@ export default function NotificationBell() {
                       className={`mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full ${
                         alert.color === "red"
                           ? "bg-red-100 text-red-600"
-                          : "bg-yellow-100 text-yellow-600"
+                          : alert.color === "yellow"
+                            ? "bg-amber-100 text-amber-600"
+                            : "bg-blue-100 text-blue-600"
                       }`}
                     >
-                      {alert.color === "red" ? <AlertTriangle size={12} /> : <Clock size={12} />}
+                      {alert.color === "red" ? (
+                        <AlertTriangle size={12} />
+                      ) : alert.color === "yellow" ? (
+                        <Clock size={12} />
+                      ) : (
+                        <Info size={12} />
+                      )}
                     </span>
                     <p className="text-xs text-gray-700">{alert.message}</p>
                   </div>

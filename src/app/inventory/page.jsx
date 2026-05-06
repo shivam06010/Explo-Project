@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Search, SlidersHorizontal } from "lucide-react";
 import InventoryTable from "@/components/InventoryTable";
 import { initializeInventoryFromDataset } from "@/utils/datasetClient";
+import { EXPIRY_THRESHOLDS_DAYS } from "@/utils/supplyLogic";
 
 const CATEGORIES = ["All", "Medicine"];
 
@@ -25,9 +26,6 @@ export default function InventoryPage() {
   }, []);
 
   // ── Filtering ──────────────────────────────────────────────────────────────
-  const today        = new Date(); today.setHours(0, 0, 0, 0);
-  const warnCutoff   = new Date(today); warnCutoff.setDate(today.getDate() + 7);
-
   const filtered = items.filter((item) => {
     const matchSearch   = item.name.toLowerCase().includes(search.toLowerCase()) ||
                           item.batchNumber?.toLowerCase().includes(search.toLowerCase());
@@ -105,7 +103,7 @@ export default function InventoryPage() {
           {[
             { key: "all",       label: "All" },
             { key: "low-stock", label: `Low Stock (${lowStockCount})` },
-            { key: "expiring",  label: `Expiring (${expiringCount})` },
+              { key: "expiring",  label: `Expiry Alerts (${expiringCount})` },
           ].map(({ key, label }) => (
             <button
               key={key}
@@ -126,11 +124,15 @@ export default function InventoryPage() {
       <div className="flex items-center gap-5 text-xs text-gray-500">
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded bg-red-100 border border-red-200 inline-block" />
-          Low stock / Expired
+          Critical: low stock or expiring in {EXPIRY_THRESHOLDS_DAYS.critical} days
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-yellow-100 border border-yellow-200 inline-block" />
-          Expiring within 7 days
+          <span className="w-3 h-3 rounded bg-amber-100 border border-amber-200 inline-block" />
+          Warning: expiring in {EXPIRY_THRESHOLDS_DAYS.warning} days
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded bg-blue-100 border border-blue-200 inline-block" />
+          Advisory: expiring in {EXPIRY_THRESHOLDS_DAYS.advisory} days
         </span>
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded bg-green-100 border border-green-200 inline-block" />

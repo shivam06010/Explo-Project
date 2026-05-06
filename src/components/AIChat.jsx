@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Bot, SendHorizonal, User } from "lucide-react";
+import { EXPIRY_THRESHOLDS_DAYS, getExpiryAlertLevel } from "@/utils/supplyLogic";
 
 const INITIAL_MESSAGES = [
   {
@@ -34,21 +35,20 @@ function buildInventoryReply(input) {
   }
 
   if (text.includes("expiring")) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const cutoff = new Date(today);
-    cutoff.setDate(today.getDate() + 7);
-
     const expiring = inventory.filter((i) => {
-      if (!i.expiryDate) return false;
-      const d = new Date(i.expiryDate);
-      return d >= today && d <= cutoff;
+      const { level } = getExpiryAlertLevel(i.expiryDate);
+      return level !== "none";
     });
 
-    if (!expiring.length) return "No items expiring within the next 7 days.";
+    if (!expiring.length) {
+      return `No items in expiry alert windows (${EXPIRY_THRESHOLDS_DAYS.critical}/${EXPIRY_THRESHOLDS_DAYS.warning}/${EXPIRY_THRESHOLDS_DAYS.advisory} days).`;
+    }
     return `Expiring soon: ${expiring
       .slice(0, 10)
-      .map((i) => `${i.name} (${i.batchNumber}) expires ${i.expiryDate}`)
+      .map((i) => {
+        const { level, daysToExpiry } = getExpiryAlertLevel(i.expiryDate);
+        return `${i.name} (${i.batchNumber}) expires ${i.expiryDate} [${level}, ${daysToExpiry} days]`;
+      })
       .join(", ")}.`;
   }
 
@@ -74,7 +74,7 @@ function buildInventoryReply(input) {
         `Expiry: ${fmt(i.expiryDate)}`,
         `Supplier: ${fmt(i.supplier)}`,
         `Temp range: ${fmt(i.tempMin)}°C to ${fmt(i.tempMax)}°C`,
-        `Flags: lowStock=${fmt(i.lowStock)}, expirySoon=${fmt(i.expirySoon)}`,
+        `Flags: lowStock=${fmt(i.lowStock)}, highRisk=${fmt(i.highRisk)}, expiryAlertLevel=${fmt(i.expiryAlertLevel)}`,
       ].join("\n");
     }
 
@@ -153,7 +153,7 @@ export default function AIChat() {
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type: low stock / expiring"
+            placeholder="Type: low stock / expiring (30-90-180 days)"
             className="w-full border border-gray-300 bg-white text-gray-900 placeholder:text-gray-500 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
           />
           <button

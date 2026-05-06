@@ -5,7 +5,7 @@ import { getUser } from "@/utils/auth";
 import StatCard from "@/components/StatCard";
 import InventoryChart from "@/components/charts/InventoryChart";
 import { hydrateSensorsFromInventory, initializeInventoryFromDataset } from "@/utils/datasetClient";
-import { getInventoryAlerts } from "@/utils/supplyLogic";
+import { EXPIRY_THRESHOLDS_DAYS, getInventoryAlerts } from "@/utils/supplyLogic";
 import {
   Package,
   AlertTriangle,
@@ -25,7 +25,12 @@ export default function DashboardPage() {
       const inventory = await initializeInventoryFromDataset();
       hydrateSensorsFromInventory(inventory);
 
-      const { lowStockAlerts, expiryAlerts } = getInventoryAlerts(inventory);
+      const { lowStockAlerts, expiryTierAlerts } = getInventoryAlerts(inventory);
+      const expiryAlerts = [
+        ...expiryTierAlerts.critical,
+        ...expiryTierAlerts.warning,
+        ...expiryTierAlerts.advisory,
+      ];
       const combinedAlerts = [...lowStockAlerts, ...expiryAlerts];
 
       setStats({
@@ -65,7 +70,7 @@ export default function DashboardPage() {
           title:       "Expiring Soon",
           value:       stats.expiringSoon,
           color:       "yellow",
-          description: "expiry_date < next 7 days (FEFO)",
+          description: `expiry <= ${EXPIRY_THRESHOLDS_DAYS.advisory} days`,
           icon:        <Clock size={20} />,
         },
         {
@@ -142,7 +147,8 @@ export default function DashboardPage() {
           <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <h2 className="text-base font-semibold text-gray-800">Alert Feed</h2>
             <p className="mt-1 text-xs text-gray-500">
-              Red = critical (low stock/ROP breach), Yellow = warning (expiring soon)
+              Red = critical (&lt;=30 days), Amber = warning (&lt;=90 days), Blue = advisory
+              (&lt;=180 days)
             </p>
             <div className="mt-4 space-y-2">
               {alerts.length ? (
@@ -152,17 +158,21 @@ export default function DashboardPage() {
                     className={`rounded-lg px-3 py-2 text-sm ${
                       alert.color === "red"
                         ? "bg-red-50 text-red-700 border border-red-200"
-                        : "bg-yellow-50 text-yellow-700 border border-yellow-200"
+                        : alert.color === "yellow"
+                          ? "bg-amber-50 text-amber-700 border border-amber-200"
+                          : "bg-blue-50 text-blue-700 border border-blue-200"
                     }`}
                   >
                     <span
                       className={`mr-2 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                         alert.color === "red"
                           ? "bg-red-100 text-red-700"
-                          : "bg-yellow-100 text-yellow-700"
+                          : alert.color === "yellow"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-blue-100 text-blue-700"
                       }`}
                     >
-                      {alert.color === "red" ? "Critical" : "Warning"}
+                      {alert.color === "red" ? "Critical" : alert.color === "yellow" ? "Warning" : "Advisory"}
                     </span>
                     {alert.message}
                   </div>
@@ -186,7 +196,9 @@ export default function DashboardPage() {
                     className={`rounded-lg border px-3 py-2 text-sm ${
                       suggestion.color === "red"
                         ? "border-red-200 bg-red-50 text-red-700"
-                        : "border-yellow-200 bg-yellow-50 text-yellow-700"
+                        : suggestion.color === "yellow"
+                          ? "border-amber-200 bg-amber-50 text-amber-700"
+                          : "border-blue-200 bg-blue-50 text-blue-700"
                     }`}
                   >
                     {suggestion.text}
